@@ -20,6 +20,7 @@ public class SimuladorPublisher {
         opt.setAutomaticReconnect(true);
         opt.setCleanSession(true);
 
+        // ✅ Credenciales del profesor (vienen de Config)
         if (Config.MQTT_USER != null && !Config.MQTT_USER.isBlank()) {
             opt.setUserName(Config.MQTT_USER);
             opt.setPassword(Config.MQTT_PASS.toCharArray());
@@ -28,15 +29,16 @@ public class SimuladorPublisher {
         client.connect(opt);
         System.out.println("Conectado a MQTT: " + Config.MQTT_BROKER);
 
-        // ✅ UN SOLO TOPIC para todas las estaciones
-        String topic = Config.TOPIC_BASE + "/mediciones";
-
         int idx = 0;
 
         while (true) {
             // ✅ Alterna estaciones: EST-001, EST-002, ...
             String estacion = Config.ESTACIONES[idx % Config.ESTACIONES.length];
             idx++;
+
+            // ✅ Topic por estación (RECOMENDADO)
+            // Ej: /20181853/EST-001/mediciones
+            String topic = Config.TOPIC_BASE + "/" + estacion + "/mediciones";
 
             String payload = construirPayload(estacion);
             publicar(topic, payload);
@@ -63,7 +65,7 @@ public class SimuladorPublisher {
         m.add(mapTV(9, round2(clamp(220 + rnd.nextGaussian() * 50, 0, 600))));          // K mg/kg
 
         java.util.Map<String, Object> root = new java.util.LinkedHashMap<>();
-        root.put("estacion", estacion); // ✅ aquí va la estación que toca
+        root.put("estacion", estacion);
         root.put("fecha", fecha);
         root.put("m", m);
 

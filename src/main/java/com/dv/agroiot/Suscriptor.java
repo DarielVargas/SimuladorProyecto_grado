@@ -7,6 +7,7 @@ import org.eclipse.paho.client.mqttv3.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class Suscriptor {
@@ -14,12 +15,25 @@ public class Suscriptor {
     private final ObjectMapper mapper = new ObjectMapper();
     private final Db db = new Db();
 
+    // Nombres bonitos para los tipos 1..9
+    private static final Map<Integer, String> TIPO_NOMBRE = new LinkedHashMap<>();
+    static {
+        TIPO_NOMBRE.put(1, "Humedad Suelo (%)");
+        TIPO_NOMBRE.put(2, "Temp Ambiental (°C)");
+        TIPO_NOMBRE.put(3, "Humedad Ambiental (%)");
+        TIPO_NOMBRE.put(4, "Luz (Lux)");
+        TIPO_NOMBRE.put(5, "pH Suelo");
+        TIPO_NOMBRE.put(6, "Conductividad (dS/m)");
+        TIPO_NOMBRE.put(7, "N (mg/kg)");
+        TIPO_NOMBRE.put(8, "P (mg/kg)");
+        TIPO_NOMBRE.put(9, "K (mg/kg)");
+    }
+
     public void start() throws Exception {
 
         db.connect();
 
         // ✅ Escucha todas las estaciones que publiquen bajo /20181853/<EST-xxx>/mediciones
-        // Ej: /20181853/EST-001/mediciones
         String topic = Config.TOPIC_BASE + "/+/mediciones";
 
         MqttClient client = new MqttClient(
@@ -75,7 +89,6 @@ public class Suscriptor {
                 for (JsonNode item : mNode) {
                     JsonNode tNode = item.get("t");
                     JsonNode vNode = item.get("v");
-
                     if (tNode == null || vNode == null) continue;
 
                     int tipo = tNode.asInt();
@@ -89,13 +102,43 @@ public class Suscriptor {
                     return;
                 }
 
-                // ✅ Ahora Db se encarga de:
-                // - crear estación si no existe
-                // - crear sensores si no existen
-                // - insertar mediciones en batch
+                // ✅ Inserta en BD
                 db.insertarBatch(tipoToValor, estacionCodigo, fecha);
 
-                System.out.println("[DB OK] topic=" + t + " estacion=" + estacionCodigo + " filas=" + tipoToValor.size());
+                // ✅ Impresión bonita en consola (lista)
+                System.out.println("\n====================================================");
+                System.out.println("ESTACION: " + estacionCodigo);
+                System.out.println("TOPIC   : " + t);
+                System.out.println("FECHA   : " + fechaStr);
+                System.out.println();
+
+                // ✅ Imprime primero los tipos 1..9 en orden, con (T#)
+                for (Map.Entry<Integer, String> e : TIPO_NOMBRE.entrySet()) {
+                    int tipo = e.getKey();
+                    String nombre = e.getValue();
+
+                    if (tipoToValor.containsKey(tipo)) {
+                        System.out.printf("%-22s (T%-2d) : %.2f%n",
+                                nombre,
+                                tipo,
+                                tipoToValor.get(tipo)
+                        );
+                    }
+                }
+
+                // Si llega algún tipo extra (no esperado), lo imprime al final
+                for (Map.Entry<Integer, Double> e : tipoToValor.entrySet()) {
+                    int tipo = e.getKey();
+                    if (!TIPO_NOMBRE.containsKey(tipo)) {
+                        System.out.printf("%-22s (T%-2d) : %.2f%n",
+                                "Tipo Desconocido",
+                                tipo,
+                                e.getValue()
+                        );
+                    }
+                }
+
+                System.out.println("====================================================");
 
             } catch (Exception ex) {
                 System.out.println("[DB ERROR] " + ex.getMessage());

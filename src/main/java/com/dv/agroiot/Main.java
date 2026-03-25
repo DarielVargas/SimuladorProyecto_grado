@@ -15,9 +15,11 @@ public class Main {
             }
         }, "mqtt-suscriptor");
 
-        // ✅ No daemon: queremos que el programa siga vivo aunque el publisher falle
+        // ✅ Mantener activo el suscriptor
         subThread.start();
 
+        // ⛔ SIMULADOR DESACTIVADO (para usar datos reales del MQTT)
+        /*
         try {
             Thread.sleep(800); // pequeño margen
         } catch (InterruptedException ignored) {}
@@ -30,5 +32,6 @@ public class Main {
             System.out.println("[ERROR] SimuladorPublisher falló: " + e.getMessage());
             e.printStackTrace();
         }
+        */
     }
 }

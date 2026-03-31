@@ -19,7 +19,7 @@ public class Main {
         subThread.start();
 
         // ⛔ SIMULADOR DESACTIVADO (para usar datos reales del MQTT)
-        /*
+        
         try {
             Thread.sleep(800); // pequeño margen
         } catch (InterruptedException ignored) {}
@@ -32,6 +32,6 @@ public class Main {
             System.out.println("[ERROR] SimuladorPublisher falló: " + e.getMessage());
             e.printStackTrace();
         }
-        */
+        
     }
 }

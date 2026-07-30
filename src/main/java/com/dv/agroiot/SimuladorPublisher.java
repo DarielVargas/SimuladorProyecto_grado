@@ -5,6 +5,7 @@ import org.eclipse.paho.client.mqttv3.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
@@ -13,6 +14,9 @@ public class SimuladorPublisher {
 
     private MqttClient client;
     private final Random rnd = new Random();
+
+    // Batería independiente por estación
+    private final Map<String, Double> baterias = new HashMap<>();
 
     // Formato que espera tu suscriptor actual
     private final DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy");
@@ -31,6 +35,11 @@ public class SimuladorPublisher {
 
         client.connect(opt);
         System.out.println("Conectado a MQTT: " + Config.MQTT_BROKER);
+
+        // Inicializar baterías
+        for (String estacion : Config.ESTACIONES) {
+            baterias.put(estacion, 100.0);
+        }
 
         int idx = 0;
 
@@ -55,7 +64,7 @@ public class SimuladorPublisher {
         root.put("estacion", estacion);
         root.put("fecha", fecha);
 
-        // Campos que espera tu suscriptor actual
+        // Sensores
         root.put("humedad_suelo", round2(clamp(55 + rnd.nextGaussian() * 10, 0, 100)));
         root.put("temperatura_ambiental", round2(clamp(27 + rnd.nextGaussian() * 2.5, 15, 35)));
         root.put("humedad_ambiental", round2(clamp(65 + rnd.nextGaussian() * 12, 20, 90)));
@@ -66,10 +75,32 @@ public class SimuladorPublisher {
         root.put("fosforo", round2(clamp(60 + rnd.nextGaussian() * 20, 0, 300)));
         root.put("potasio", round2(clamp(220 + rnd.nextGaussian() * 50, 0, 600)));
 
-        // Opcional: tu suscriptor la muestra, pero no la guarda
+        // Nuevo campo: batería
+        root.put("bateria", obtenerBateria(estacion));
+
+        // Señal RSSI
         root.put("senal", round2(clamp(-55 + rnd.nextGaussian() * 8, -120, 0)));
 
         return JsonUtil.toJson(root);
+    }
+
+    private double obtenerBateria(String estacion) {
+
+        double bateria = baterias.getOrDefault(estacion, 100.0);
+
+        // Descarga entre 0.05% y 0.20% por envío
+        bateria -= (0.05 + rnd.nextDouble() * 0.15);
+
+        // Reinicia para mantener la simulación funcionando
+        if (bateria <= 5) {
+            bateria = 100.0;
+        }
+
+        bateria = round2(bateria);
+
+        baterias.put(estacion, bateria);
+
+        return bateria;
     }
 
     private void publicar(String topic, String payload) throws Exception {

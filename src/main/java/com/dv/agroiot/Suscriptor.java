@@ -30,7 +30,7 @@ public class Suscriptor {
         TIPO_NOMBRE.put(9, "K (mg/kg)");
     }
 
-    // Formato de fecha que está enviando tu compañero
+    // Formato de fecha que está enviando el publicador
     private static final DateTimeFormatter FMT =
             DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy");
 
@@ -38,7 +38,6 @@ public class Suscriptor {
 
         db.connect();
 
-        // Tu compañero publica aquí
         String topic = Config.TOPIC_BASE + "/mediciones";
 
         MqttClient client = new MqttClient(
@@ -56,13 +55,16 @@ public class Suscriptor {
         }
 
         client.connect(opt);
+
         System.out.println("Suscriptor conectado a MQTT");
         System.out.println("Escuchando topic: " + topic);
 
         client.subscribe(topic, (t, msg) -> {
+
             String payload = new String(msg.getPayload(), StandardCharsets.UTF_8);
 
             try {
+
                 System.out.println("\n📩 MENSAJE RECIBIDO -> " + payload);
 
                 JsonNode root = mapper.readTree(payload);
@@ -84,9 +86,17 @@ public class Suscriptor {
                 String fechaStr = fechaNode.asText();
                 LocalDateTime fecha = LocalDateTime.parse(fechaStr, FMT);
 
+                // ==========================
+                // BATERÍA
+                // ==========================
+                Double bateria = null;
+
+                if (root.has("bateria") && !root.get("bateria").isNull()) {
+                    bateria = root.get("bateria").asDouble();
+                }
+
                 Map<Integer, Double> tipoToValor = new HashMap<>();
 
-                // Mapeo de campos del JSON a tus tipos actuales de BD
                 if (root.has("humedad_suelo") && !root.get("humedad_suelo").isNull()) {
                     tipoToValor.put(1, root.get("humedad_suelo").asDouble());
                 }
@@ -128,8 +138,13 @@ public class Suscriptor {
                     return;
                 }
 
-                // Inserta en BD sin dañar la web
+                // Guardar mediciones
                 db.insertarBatch(tipoToValor, estacionCodigo, fecha);
+
+                // Actualizar batería
+                if (bateria != null) {
+                    db.actualizarBateria(estacionCodigo, bateria);
+                }
 
                 System.out.println("====================================================");
                 System.out.println("ESTACION: " + estacionCodigo);
@@ -138,33 +153,45 @@ public class Suscriptor {
                 System.out.println();
 
                 for (Map.Entry<Integer, String> e : TIPO_NOMBRE.entrySet()) {
+
                     int tipo = e.getKey();
-                    String nombre = e.getValue();
 
                     if (tipoToValor.containsKey(tipo)) {
-                        System.out.printf("%-22s (T%-2d) : %.2f%n",
-                                nombre,
+
+                        System.out.printf(
+                                "%-22s (T%-2d) : %.2f%n",
+                                e.getValue(),
                                 tipo,
-                                tipoToValor.get(tipo));
+                                tipoToValor.get(tipo)
+                        );
                     }
                 }
 
-                // Mostrar señal si viene, aunque no se guarde
                 if (root.has("senal") && !root.get("senal").isNull()) {
                     System.out.printf("%-22s      : %.2f%n",
                             "Señal RSSI",
                             root.get("senal").asDouble());
                 }
 
+                if (bateria != null) {
+                    System.out.printf("%-22s      : %.2f%%%n",
+                            "Batería",
+                            bateria);
+                }
+
                 System.out.println("====================================================");
-                System.out.println("[DB OK] estacion=" + estacionCodigo + " filas=" + tipoToValor.size());
+                System.out.println("[DB OK] estacion=" + estacionCodigo +
+                        " filas=" + tipoToValor.size());
 
             } catch (Exception ex) {
+
                 System.out.println("[DB ERROR] " + ex.getMessage());
                 System.out.println("Topic: " + t);
                 System.out.println("Payload: " + payload);
                 ex.printStackTrace();
+
             }
+
         });
     }
 }

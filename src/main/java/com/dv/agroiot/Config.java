@@ -2,10 +2,10 @@ package com.dv.agroiot;
 
 public class Config {
 
-    // --- MQTT (Servidor del profesor) ---
-    public static final String MQTT_BROKER = "tcp://mqtt.eict.ce.pucmm.edu.do:1883";
-    public static final String MQTT_USER = "20181853";
-    public static final String MQTT_PASS = "qqLKTrZJPC82";
+    // --- MQTT (Broker público HiveMQ) ---
+    public static final String MQTT_BROKER = "tcp://broker.hivemq.com:1883";
+    public static final String MQTT_USER = "";
+    public static final String MQTT_PASS = "";
 
     // IMPORTANTE: todo debe colgar de este topic
     // Ejemplo final: /20181853/EST-001/mediciones
@@ -18,6 +18,6 @@ public class Config {
     public static final String DB_USER = "root";
     public static final String DB_PASS = "pucmm";
 
-    // cada cuánto publica el simulador
+    // Cada cuánto publica el simulador
     public static final int INTERVAL_MS = 2000;
 }
